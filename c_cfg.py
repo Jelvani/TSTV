@@ -22,8 +22,12 @@ class CFG():
         f = open(self.filename)
         parser = c_parser.CParser()
         ast = parser.parse(f.read())
-        return ast.ext[0].body
+        return ast.ext[0].bod
+    
 
+    # returns list of nodes that are "leaders" of basic blocks
+    def get_leaders(self, topnode):
+        
 
 
 
