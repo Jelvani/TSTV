@@ -9,6 +9,7 @@ class CFG():
         self.cfg = graphviz.Digraph(comment='CFG')
         self.basic_blocks = []
         self.current_block = ""
+        self.leaders = []
 
 
     # get source code from lineno of node
@@ -25,20 +26,21 @@ class CFG():
         return ast.ext[0].bod
     
 
-    # returns list of nodes that are "leaders" of basic blocks
-    def get_leaders(self, topnode):
-        
 
 
 
-    def get_basic_blocks(self, node, inbranch=False):
+    def get_leaders(self, node, isleader=False):
+
         if node is None:
+            return
+        
+        if isleader:
+            self.leaders.append(node)
             return
         
         if isinstance(node, c_ast.Compound):
             for node in node.block_items:
-                t = self.get_from_line(node)
-                self.get_basic_blocks(node)
+                self.get_leaders(node)
 
             # if in current if stmt, we change control flow at end of statement list
             if inbranch:
