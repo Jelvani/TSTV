@@ -3,7 +3,7 @@ import graphviz
 
 
 
-class NodeWrapper:
+class NodeWrapper(c_ast.Node):
     def __init__(self, node, parent=None):
         self.node = node
         self.parent = parent
@@ -11,9 +11,7 @@ class NodeWrapper:
     def __getattr__(self, attr):
         return getattr(self.node, attr)
     
-    
-    def __instancecheck__(self, cls, instance):
-        return isinstance(instance, self.node)
+
 
 class CFG():
     def __init__(self, filename) -> None:
@@ -39,58 +37,56 @@ class CFG():
     
 
 
-
-
     def get_leaders(self, node: NodeWrapper, prev_branch=False):
         
-        if node is None:
+        if node.node is None:
             return
         
-        if isinstance(node, c_ast.Compound):
+        if isinstance(node.node, c_ast.Compound):
             first = True # Only the first instruction can be a leader
             for n in node.block_items:
-                n = NodeWrapper(n)
-                n.parent=node
+                n = NodeWrapper(n,node.node)
+
                 if first:
                     first=False  
                     self.get_leaders(n,prev_branch)
                 else:
                     self.get_leaders(n)
 
-        elif isinstance(node, c_ast.If):
+        elif isinstance(node.node, c_ast.If):
 
-            t = NodeWrapper(node.iftrue)
-            f = NodeWrapper(node.iffalse)
-            t.parent = node
-            f.parent = node
-
-            self.get_leaders(t, prev_branch=True)
-            self.get_leaders(f, prev_branch=True)
+            self.get_leaders(NodeWrapper(node.iftrue, node.node), prev_branch=True)
+            self.get_leaders(NodeWrapper(node.iffalse, node.node), prev_branch=True)
         
-        elif isinstance(node, c_ast.For):
-            n = NodeWrapper(node.stmt)
-            n.parent = node
-            self.get_leaders(node.stmt,prev_branch=True)
+        elif isinstance(node.node, c_ast.For):
+            self.get_leaders(NodeWrapper(node.stmt, node.node),prev_branch=True)
 
         else:
             if prev_branch:
                 self.leaders.append(node)
 
+
     # walk a leader until end of bb
-    def get_bblocks(self,node):
-        if node is None:
+    def get_bblocks(self,node: NodeWrapper):
+
+        if node.node is None:
             return
         
-        if isinstance(node, c_ast.Compound):
-            for node in node.block_items:
-                self.get_bblocks(node)
-        elif isinstance(node, c_ast.If):
+        if isinstance(node.node, c_ast.Compound):
+            for n in node.block_items:
+                self.get_bblocks(NodeWrapper(n, node.node))
+        
+        elif isinstance(node.node, c_ast.Assignment):
+            
+
+        elif isinstance(node.node, c_ast.If):
             t = self.get_from_line(node.cond)
             self.current_block += t
             self.basic_blocks.append(self.current_block)
             self.current_block = ""
+
         else:
-            t = self.get_from_line(node)
+            t = self.get_from_line(node.node)
             self.current_block += t
 
 
@@ -139,9 +135,13 @@ graph = CFG("test.c")
 #graph.cfg.render('cfg', view=True, format="png")
 
 ast = graph.parse()
-graph.get_leaders(ast,prev_branch=True)
+graph.get_leaders(NodeWrapper(ast,None),prev_branch=True)
+
+
+print(graph.leaders)
+
 for l in graph.leaders:
-    l.show()
+    l.node.show()
     graph.get_bblocks(l)
 
 print(graph.basic_blocks)
