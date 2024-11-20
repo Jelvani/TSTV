@@ -8,13 +8,14 @@ void s7(int * a, int * b, int * c, int n) {
             c[i] += 1;
             b[i] += 1;
         }
+        else if (a[1] > 10)
+        {
+           a[i] += b[i]; 
+        }
         else {
             a[i] += 1;
+            b[i+1]+=c[i];
         }
     }
 }
 
-
-int main(){
-    return 0;
-}

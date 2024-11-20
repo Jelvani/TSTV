@@ -1,149 +1,32 @@
-from pycparser import c_parser, c_ast
-import graphviz
+import pydot
+import re
+
+
+def parse_dbg(metadata: str):
+    lineno = re.search("line: (\d+)*", metadata)
+    colno = re.search("column: (\d+)*", metadata)
+    return int(lineno.group(1)), int(colno.group(1))
+
+
+(G1,) = pydot.graph_from_dot_file('clang-cfg/src.s7.dot')
+(G2,) = pydot.graph_from_dot_file('clang-cfg/tgt.s7.dot')
+
+
+for n in G2.get_nodes():
+    G1.add_node(n)
+    #(n.get_label())
+for e in G2.get_edges():
+    G1.add_edge(e)
 
 
 
-class NodeWrapper(c_ast.Node):
-    def __init__(self, node, parent=None):
-        self.node = node
-        self.parent = parent
 
-    def __getattr__(self, attr):
-        return getattr(self.node, attr)
-    
+l1 = G1.get_nodes()[1]
+l2 = G2.get_nodes()[0]
+e = pydot.Edge(l1, l2)
+e.set_color("blue")
+G1.add_edge(e)
 
+G1.write_png('cfg.png')
 
-class CFG():
-    def __init__(self, filename) -> None:
-        self.filename = filename
-        self.cfg = graphviz.Digraph(comment='CFG')
-        self.basic_blocks = []
-        self.current_block = ""
-        self.leaders = []
-
-
-    # get source code from lineno of node
-    def get_from_line(self, node):
-        with open(self.filename) as fp:
-            for i, line in enumerate(fp):
-                if i == node.coord.line - 1:
-                    return line
-                
-    def parse(self):
-        f = open(self.filename)
-        parser = c_parser.CParser()
-        ast = parser.parse(f.read())
-        return ast.ext[0].body
-    
-
-
-    def get_leaders(self, node: NodeWrapper, prev_branch=False):
-        
-        if node.node is None:
-            return
-        
-        if isinstance(node.node, c_ast.Compound):
-            first = True # Only the first instruction can be a leader
-            for n in node.block_items:
-                n = NodeWrapper(n,node.node)
-
-                if first:
-                    first=False  
-                    self.get_leaders(n,prev_branch)
-                else:
-                    self.get_leaders(n)
-
-        elif isinstance(node.node, c_ast.If):
-
-            self.get_leaders(NodeWrapper(node.iftrue, node.node), prev_branch=True)
-            self.get_leaders(NodeWrapper(node.iffalse, node.node), prev_branch=True)
-        
-        elif isinstance(node.node, c_ast.For):
-            self.get_leaders(NodeWrapper(node.stmt, node.node),prev_branch=True)
-
-        else:
-            if prev_branch:
-                self.leaders.append(node)
-
-
-    # walk a leader until end of bb
-    def get_bblocks(self,node: NodeWrapper):
-
-        if node.node is None:
-            return
-        
-        if isinstance(node.node, c_ast.Compound):
-            for n in node.block_items:
-                self.get_bblocks(NodeWrapper(n, node.node))
-        
-        elif isinstance(node.node, c_ast.Assignment):
-            
-
-        elif isinstance(node.node, c_ast.If):
-            t = self.get_from_line(node.cond)
-            self.current_block += t
-            self.basic_blocks.append(self.current_block)
-            self.current_block = ""
-
-        else:
-            t = self.get_from_line(node.node)
-            self.current_block += t
-
-
-
-    def walker(self):
-        func_body = self.parse()
-        parent = None
-        for node in func_body:
-            parent = self.dispatcher(node, parent)
-            print(parent)
-
-    def dispatcher(self, node, parent=None, label=None):
-        if node is None:
-            return parent
-        
-        if isinstance(node, c_ast.If):
-            t = self.get_from_line(node.cond)
-            self.cfg.node(f"{node.coord.line}", t)
-            if parent:
-                self.cfg.edge(f"{parent.coord.line}", f"{node.coord.line}", label=label)
-            parent = self.dispatcher(node.iftrue, node, label="True")
-            self.dispatcher(node.iffalse, node, label="False")
-
-        elif isinstance(node, c_ast.Compound):
-            nodetext = ""
-            for b in node.block_items:
-                t = self.get_from_line(b)
-                nodetext += f"{t}"
-            self.cfg.node(f"{node.block_items[0].coord.line}", nodetext)
-            self.cfg.edge(f"{parent.coord.line}", f"{node.block_items[0].coord.line}", label=label)
-            #new parent
-            return node.block_items[0]
-        
-        elif isinstance(node,c_ast.For):
-            t = self.get_from_line(node)
-            self.cfg.node(f"{node.coord.line}", t)
-            self.cfg.edge(f"{parent.coord.line}", f"{node.coord.line}", label=label)
-            self.dispatcher(node.stmt, node, label="True")
-        
-        return parent
-
-
-
-graph = CFG("test.c")
-#graph.walker()
-#graph.cfg.render('cfg', view=True, format="png")
-
-ast = graph.parse()
-graph.get_leaders(NodeWrapper(ast,None),prev_branch=True)
-
-
-print(graph.leaders)
-
-for l in graph.leaders:
-    l.node.show()
-    graph.get_bblocks(l)
-
-print(graph.basic_blocks)
-
-# graph.cfg.render('cfg', view=True, format="png")
+print(parse_dbg("!56 = !DILocation(line: 6, column: 29, scope: !29)"))
