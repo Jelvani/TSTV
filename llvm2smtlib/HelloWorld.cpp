@@ -69,7 +69,7 @@ void iterateInstructionsAndOperands(Function &F) {
     
 }
 
-void emitSexp(const std::string &id, std::vector<std::string> args)
+std::string emitSexp(const std::string &id, std::vector<std::string> args)
 {
   std::string out = "";
   out +=  "(" + id;
@@ -80,9 +80,12 @@ void emitSexp(const std::string &id, std::vector<std::string> args)
   }
   out += ")";
 
-  llvm::outs() << out << "\n";
+  return out;
 
 }
+
+
+std::vector<std::string> formulas;
 
 void emitArith(llvm::Instruction &inst, const std::string &smtOp)
 {
@@ -90,7 +93,8 @@ void emitArith(llvm::Instruction &inst, const std::string &smtOp)
   llvm::Value* op2 = inst.getOperand(1);
 
   std::vector<std::string> args = {op1->getNameOrAsOperand(), op2->getNameOrAsOperand()};
-  emitSexp(smtOp, args);
+  std::string f = emitSexp(smtOp, args);
+  formulas.push_back(f);
   
   return;
 }
